@@ -3,24 +3,17 @@
 .text
 main:
     jal ra, create_default_list
-    add s0, a0, x0 # a0 (and now s0) is the head of node list
+    add s0, a0, x0              # a0 (and now s0) is the head of node list
 
     # Print the list
     add a0, s0, x0
     jal ra, print_list
-    # Print a newline
     jal ra, print_newline
 
     # === Calling `map(head, &square)` ===
-    # Load function arguments
-    add a0, s0, x0 # Loads the address of the first node into a0
-
-    # Load the address of the "square" function into a1 (hint: check out "la" on the green sheet)
-    ### YOUR CODE HERE ###
-
-
-    # Issue the call to map
-    jal ra, map
+    add a0, s0, x0              # Load head pointer
+    la a1, square               # MARKER 1: load address of square
+    jal ra, map                 # Call map
 
     # Print the squared list
     add a0, s0, x0
@@ -28,18 +21,9 @@ main:
     jal ra, print_newline
 
     # === Calling `map(head, &decrement)` ===
-    # Because our `map` function modifies the list in-place, the decrement takes place after
-    # the square does
-
-    # Load function arguments
-    add a0, s0, x0 # Loads the address of the first node into a0
-    
-    # Load the address of the "decrement" function into a1 (should be very similar to before)
-    ### YOUR CODE HERE ###
-
-
-    # Issue the call to map
-    jal ra, map
+    add a0, s0, x0              # Load head pointer
+    la a1, decrement            # MARKER 2: load address of decrement
+    jal ra, map                 # Call map
 
     # Print decremented list
     add a0, s0, x0
@@ -47,49 +31,45 @@ main:
     jal ra, print_newline
 
     addi a0, x0, 10
-    ecall # Terminate the program
+    ecall                       # Exit program
 
 map:
-    # Prologue: Make space on the stack and back-up registers
-    ### YOUR CODE HERE ###
+    # MARKER 3: Prologue
+    addi sp, sp, -12
+    sw ra, 0(sp)
+    sw s0, 4(sp)
+    sw s1, 8(sp)
 
-    beq a0, x0, done # If we were given a null pointer (address 0), we're done.
+    beq a0, x0, done            # If a0 == NULL, return
 
-    add s0, a0, x0 # Save address of this node in s0
-    add s1, a1, x0 # Save address of function in s1
+    add s0, a0, x0              # s0 = node address
+    add s1, a1, x0              # s1 = function pointer
 
-    # Remember that each node is 8 bytes long: 4 for the value followed by 4 for the pointer to next.
-    # What does this tell you about how you access the value and how you access the pointer to next?
+    #  MARKER 4: Load value from node
+    lw a0, 0(s0)                # a0 = node->value
 
-    # Load the value of the current node into a0
-    # THINK: Why a0?
-    ### YOUR CODE HERE ###
+    #  MARKER 5: Call function via pointer
+    jalr ra, s1, 0              # Call (*f)(a0)
 
-    # Call the function in question on that value. DO NOT use a label (be prepared to answer why).
-    # Hint: Where do we keep track of the function to call? Recall the parameters of "map".
-    ### YOUR CODE HERE ###
+    # MARKER 6: Store result into node
+    sw a0, 0(s0)                # node->value = result
 
-    # Store the returned value back into the node
-    # Where can you assume the returned value is?
-    ### YOUR CODE HERE ###
+    #  MARKER 7: Load next pointer
+    lw a0, 4(s0)                # a0 = node->next
 
-    # Load the address of the next node into a0
-    # The address of the next node is an attribute of the current node.
-    # Think about how structs are organized in memory.
-    ### YOUR CODE HERE ###
+    #  MARKER 8: Restore function pointer to a1
+    add a1, s1, x0              # a1 = f (function pointer)
 
-    # Put the address of the function back into a1 to prepare for the recursion
-    # THINK: why a1? What about a0?
-    ### YOUR CODE HERE ###
-
-    # Recurse
-    ### YOUR CODE HERE ###
+    #  MARKER 9: Recursive call
+    jal ra, map
 
 done:
-    # Epilogue: Restore register values and free space from the stack
-    ### YOUR CODE HERE ###
-
-    jr ra # Return to caller
+    #  MARKER 10: Epilogue
+    lw ra, 0(sp)
+    lw s0, 4(sp)
+    lw s1, 8(sp)
+    addi sp, sp, 12
+    jr ra                       # return
 
 # === Definition of the "square" function ===
 square:
@@ -119,7 +99,7 @@ loop:                   # do...
     add s0, a0, x0      #     last = node
     addi s1, s1, 1      #     i++
     addi t0, x0, 10
-    bne s1, t0, loop    # ... while i!= 10
+    bne s1, t0, loop    # ... while i != 10
     lw ra, 0(sp)
     lw s0, 4(sp)
     lw s1, 8(sp)
@@ -132,16 +112,16 @@ print_list:
 print_me_and_recurse:
     add t0, a0, x0      # t0 gets current node address
     lw a1, 0(t0)        # a1 gets value in current node
-    addi a0, x0, 1      # Prepare for print integer ecall
+    addi a0, x0, 1      # syscall 1 = print int
     ecall
-    addi a1, x0, ' '    # a0 gets address of string containing space
-    addi a0, x0, 11     # Prepare for print char syscall
+    addi a1, x0, ' '
+    addi a0, x0, 11     # syscall 11 = print char
     ecall
-    lw a0, 4(t0)        # a0 gets address of next node
-    jal x0, print_list  # Recurse. The value of ra hasn't been changed.
+    lw a0, 4(t0)        # a0 = node->next
+    jal x0, print_list  # recurse
 
 print_newline:
-    addi a1, x0, '\n'   # Load in ascii code for newline
+    addi a1, x0, '\n'
     addi a0, x0, 11
     ecall
     jr ra
